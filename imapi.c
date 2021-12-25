@@ -68,7 +68,6 @@ void connect_fbterm(char raw)
     msg.len = sizeof(msg);
     msg.raw = (raw ? 1 : 0);
     int ret = write(imfd, (char *)&msg, sizeof(msg));
-    (void) ret;
 }
 
 void put_im_text(const char *text, unsigned len)
@@ -82,7 +81,6 @@ void put_im_text(const char *text, unsigned len)
     memcpy(MSG(buf)->texts, text, len);
 
     int ret = write(imfd, buf, MSG(buf)->len);
-    (void) ret;
 }
 
 void set_im_window(unsigned id, Rectangle rect)
@@ -96,7 +94,6 @@ void set_im_window(unsigned id, Rectangle rect)
     msg.win.rect = rect;
 
     int ret = write(imfd, (char *)&msg, sizeof(msg));
-    (void) ret;
     wait_message(AckWin);
 }
 
@@ -110,7 +107,6 @@ void fill_rect(Rectangle rect, unsigned char color)
     msg.fillRect.color = color;
 
     int ret = write(imfd, (char *)&msg, sizeof(msg));
-    (void) ret;
 }
 
 void draw_text(unsigned x, unsigned y, unsigned char fc, unsigned char bc, const char *text, unsigned len)
@@ -129,7 +125,6 @@ void draw_text(unsigned x, unsigned y, unsigned char fc, unsigned char bc, const
     memcpy(MSG(buf)->drawText.texts, text, len);
 
     int ret = write(imfd, buf, MSG(buf)->len);
-    (void) ret;
 }
 
 static int process_message(Message *msg)
@@ -137,71 +132,70 @@ static int process_message(Message *msg)
     int exit = 0;
 
     switch (msg->type) {
-    case Disconnect:
-        close(imfd);
-        imfd = -1;
-        exit = 1;
-        break;
+        case Disconnect:
+            close(imfd);
+            imfd = -1;
+            exit = 1;
+            break;
 
-    case FbTermInfo:
-        if (cbs.fbterm_info) {
-            cbs.fbterm_info(&msg->info);
+        case FbTermInfo:
+            if (cbs.fbterm_info) {
+                cbs.fbterm_info(&msg->info);
+            }
+            break;
+
+        case Active:
+            im_active = 1;
+            if (cbs.active) {
+                cbs.active();
+            }
+            break;
+
+        case Deactive:
+            if (cbs.deactive) {
+                cbs.deactive();
+            }
+            im_active = 0;
+            break;
+
+        case ShowUI:
+            if (im_active && cbs.show_ui) {
+                cbs.show_ui(msg->winid);
+            }
+            break;
+
+        case HideUI: {
+            if (im_active && cbs.hide_ui) {
+                cbs.hide_ui();
+            }
+
+            Message msg;
+            msg.type = AckHideUI;
+            msg.len = sizeof(msg);
+            int ret = write(imfd, (char *)&msg, sizeof(msg));
+            break;
         }
-        break;
 
-    case Active:
-        im_active = 1;
-        if (cbs.active) {
-            cbs.active();
-        }
-        break;
-
-    case Deactive:
-        if (cbs.deactive) {
-            cbs.deactive();
-        }
-        im_active = 0;
-        break;
-
-    case ShowUI:
-        if (im_active && cbs.show_ui) {
-            cbs.show_ui(msg->winid);
-        }
-        break;
-
-    case HideUI: {
-        if (im_active && cbs.hide_ui) {
-            cbs.hide_ui();
-        }
-
-        Message msg;
-        msg.type = AckHideUI;
-        msg.len = sizeof(msg);
-        int ret = write(imfd, (char *)&msg, sizeof(msg));
-        (void) ret;
-        break;
-        }
-
-    case SendKey:
-        if (im_active && cbs.send_key) {
+        case SendKey:
+            if (im_active && cbs.send_key) {
                 cbs.send_key(msg->keys, msg->len - OFFSET(Message, keys));
-        }
-        break;
+            }
+            break;
 
-    case CursorPosition:
-        if (im_active && cbs.cursor_position) {
-            cbs.cursor_position(msg->cursor.x, msg->cursor.y);
-        }
-        break;
+        case CursorPosition:
+            if (im_active && cbs.cursor_position) {
+                cbs.cursor_position(msg->cursor.x, msg->cursor.y);
+            }
+            break;
 
-    case TermMode:
-        if (im_active && cbs.term_mode) {
-            cbs.term_mode(msg->term.crWithLf, msg->term.applicKeypad, msg->term.cursorEscO);
-        }
-        break;
+        case TermMode:
+            if (im_active && cbs.term_mode) {
+                cbs.term_mode(msg->term.crWithLf, msg->term.applicKeypad, msg->term.cursorEscO);
+            }
+            break;
 
-    default:
-        break;
+        default:
+            break;
     }
 
     return exit;
@@ -252,7 +246,6 @@ static void wait_message(MessageType type)
         msg.type = Ping;
         msg.len = sizeof(msg);
         int ret = write(imfd, (char *)&msg, sizeof(msg));
-        (void) ret;
     }
 }
 
@@ -284,4 +277,3 @@ int check_im_message()
 
     return !exit;
 }
-

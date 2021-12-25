@@ -1,40 +1,26 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.0)
+project(fcitx5-fbterm)
 
-project(fcitx-fbterm)
+set(CMAKE_CXX_STANDARD 14)
 
 find_package(PkgConfig REQUIRED)
-find_package(Gettext REQUIRED)
-find_package(Fcitx 4.2.6 REQUIRED)
 
-pkg_check_modules(FCITX_GCLIENT "fcitx-gclient>=4.2.6" REQUIRED)
+pkg_check_modules(FCITX5_CORE "Fcitx5Core" REQUIRED)
+pkg_check_modules(FCITX5_UTILS "Fcitx5Utils" REQUIRED)
+pkg_check_modules(FCITX5_GCLIENT "Fcitx5GClient" REQUIRED)
 
-# uninstall target
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-    IMMEDIATE @ONLY)
+include_directories(
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${FCITX5_CORE_INCLUDE_DIRS}
+        ${FCITX5_UTILS_INCLUDE_DIRS}
+        ${FCITX5_GCLIENT_INCLUDE_DIRS}
+)
 
-add_custom_target(uninstall
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+link_libraries(
+        ${FCITX5_CORE_LIBRARIES}
+        ${FCITX5_UTILS_LIBRARIES}
+        ${FCITX5_GCLIENT_LIBRARIES}
+)
 
-if(NOT DEFINED LIB_INSTALL_DIR)
-    set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
-include(FindPkgConfig)
-
-set(prefix      ${CMAKE_INSTALL_PREFIX})
-set(exec_prefix ${CMAKE_INSTALL_PREFIX})
-set(bindir ${prefix}/bin)
-set(libdir ${LIB_INSTALL_DIR})
-set(localedir ${CMAKE_INSTALL_PREFIX}/share/locale)
-set(includedir  ${CMAKE_INSTALL_PREFIX}/include)
-set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -fvisibility=hidden ${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -fvisibility=hidden ${CMAKE_CXX_FLAGS}")
-set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined,--as-needed ${CMAKE_SHARED_LINKER_FLAGS}")
-set(CMAKE_MODULE_LINKER_FLAGS "-Wl,--no-undefined,--as-needed ${CMAKE_MODULE_LINKER_FLAGS}")
-
-set(libdir ${LIB_INSTALL_DIR})
-
-add_subdirectory(src)
-add_subdirectory(scripts)
+add_executable(fcitx5-fbterm fcitx5-fbterm.cpp imapi.c imapi.c immessage.h keycode.c keycode.h input_key.h keymap.cpp keymap.h utils.h utils.cpp fcitx5-fbterm.h)

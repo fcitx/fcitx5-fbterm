@@ -100,15 +100,15 @@ extern int check_im_message();
 
 /**
  * @brief send message PutText to FbTerm
- * @param text  translated text from user keyboard input, must be encoded with utf8
- * @param len   text's length
+ * @param text	translated text from user keyboard input, must be encoded with utf8
+ * @param len	text's length
  */
 extern void put_im_text(const char *text, unsigned len);
 
 /**
  * @brief send message SetWin to FbTerm and wait until AckWin has arrived
- * @param winid the window id, must less than NR_IM_WINS
- * @param rect  the rectangle of this window area
+ * @param winid	the window id, must less than NR_IM_WINS
+ * @param rect	the rectangle of this window area
  *
  * every UI window (e.g. status bar, candidate table, etc) should have a unique win id.
  */
@@ -124,19 +124,19 @@ typedef enum { Black = 0, DarkRed, DarkGreen, DarkYellow, DarkBlue, DarkMagenta,
 
 /**
  * @brief send message FillRect to FbTerm
- * @param rect  the rectangle to be filled
+ * @param rect	the rectangle to be filled
  * @param color
  */
 extern void fill_rect(Rectangle rect, unsigned char color);
 
 /**
  * @breif send message DrawText to FbTerm
- * @param x     x axes of top left point
- * @param y     y axes of top left point
- * @param fc    foreground color
- * @param bc    background color
- * @param text  text to be drawn, must be encoding with utf8
- * @param len   text's length
+ * @param x		x axes of top left point
+ * @param y		y axes of top left point
+ * @param fc	foreground color
+ * @param bc	background color
+ * @param text	text to be drawn, must be encoding with utf8
+ * @param len	text's length
  */
 extern void draw_text(unsigned x, unsigned y, unsigned char fc, unsigned char bc, const char *text, unsigned len);
 
