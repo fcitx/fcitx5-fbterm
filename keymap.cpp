@@ -1,6 +1,6 @@
 #include <linux/keyboard.h>
-#include <Fcitx5/Utils/fcitx-utils/keysymgen.h>
-#include <Fcitx5/Utils/fcitx-utils/keysym.h>
+#include <fcitx-utils/keysymgen.h>
+#include <fcitx-utils/keysym.h>
 #include "keymap.h"
 
 static FcitxKeySym linux_to_x[256] = {

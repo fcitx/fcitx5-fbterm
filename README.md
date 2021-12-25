@@ -8,7 +8,7 @@
 See [Build](#Build)
 
 ## Build
-### Depends
+### Dependances
 - fcitx5
 - cmake
 - make
