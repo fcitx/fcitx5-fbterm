@@ -9,6 +9,7 @@ See [Build](#Build)
 
 ## Build
 ### Dependances
+- glib2
 - fcitx5
 - cmake
 - make

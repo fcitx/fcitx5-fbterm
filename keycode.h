@@ -21,10 +21,6 @@
 #ifndef KEYCODE_H
 #define KEYCODE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 void init_keycode_state();
 
 void update_term_mode(char crlf, char appkey, char curo);
@@ -34,9 +30,5 @@ unsigned short keycode_to_keysym(unsigned short keycode, char down);
 unsigned short keypad_keysym_redirect(unsigned short keysym);
 
 char *keysym_to_term_string(unsigned short keysym, char down);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

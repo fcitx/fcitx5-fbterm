@@ -1,10 +1,12 @@
-//
-// Created by duzhaokun on 2021/12/24.
-//
+/*
+* SPDX-FileCopyrightText: 2021 duzhaokun123 <duzhaokun2@outlook.com>
+*
+* SPDX-License-Identifier: GPL-3.0-or-later
+*
+*/
 
 #include "utils.h"
 #include "fcitx5-fbterm.h"
-#include <cstring>
 #include <sstream>
 
 void split(const std::string& s, std::vector<std::string>& sv, char delim) {
@@ -36,14 +38,9 @@ ColorType stringToColorType(std::string& s) {
     throw std::runtime_error("unknown color: " + s);
 }
 
-std::string getAppName(const char* arg0) {
-    auto a = strrchr(arg0, '/');
-    return a != nullptr ? a : arg0;
-}
-
 void moveRectInScreen(Rectangle& rect) {
     auto width = rect.w;
     auto height = rect.h;
-    rect.x = cursorx + fw + width > fbtermInfo.screenWidth ? cursorx - width - fw : cursorx + fw;
-    rect.y = cursory + hfh + height > fbtermInfo.screenHeight ? cursory - height - hfh * 3 : cursory + hfh;
+    rect.x = cursorx + fw + width > sw ? cursorx - width - fw : cursorx + fw;
+    rect.y = cursory + hfh + height > sh ? cursory - height - hfh * 3 : cursory + hfh;
 }

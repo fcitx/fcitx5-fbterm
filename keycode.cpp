@@ -25,6 +25,7 @@
 #include <linux/kd.h>
 #include <linux/keyboard.h>
 #include <linux/input.h>
+#include <fcitx-utils/utf8.h>
 #include "input_key.h"
 
 static char key_down[NR_KEYS];
@@ -157,38 +158,6 @@ unsigned short keypad_keysym_redirect(unsigned short keysym)
     return fn_map[keysym - K_P0];
 }
 
-
-static unsigned to_utf8(unsigned c, char *buf)
-{
-    unsigned index = 0;
-
-    if (c < 0x80)
-        buf[index++] = c;
-    else if (c < 0x800) {
-        // 110***** 10******
-        buf[index++] = 0xc0 | (c >> 6);
-        buf[index++] = 0x80 | (c & 0x3f);
-    } else if (c < 0x10000) {
-        if (c >= 0xD800 && c < 0xE000)
-            return index;
-        if (c == 0xFFFF)
-            return index;
-        // 1110**** 10****** 10******
-        buf[index++] = 0xe0 | (c >> 12);
-        buf[index++] = 0x80 | ((c >> 6) & 0x3f);
-        buf[index++] = 0x80 | (c & 0x3f);
-    } else if (c < 0x200000) {
-        // 11110*** 10****** 10****** 10******
-        buf[index++] = 0xf0 | (c >> 18);
-        buf[index++] = 0x80 | ((c >> 12) & 0x3f);
-        buf[index++] = 0x80 | ((c >> 6) & 0x3f);
-        buf[index++] = 0x80 | (c & 0x3f);
-    }
-
-    return index;
-}
-
-
 char *keysym_to_term_string(unsigned short keysym, char down)
 {
     static struct kbsentry kse;
@@ -204,7 +173,7 @@ char *keysym_to_term_string(unsigned short keysym, char down)
     switch (KTYP(keysym)) {
         case KT_LATIN:
         case KT_LETTER:
-            if (value < KVAL(AC_START) || value > KVAL(AC_END)) index = to_utf8(value, buf);
+            if (value < KVAL(AC_START) || value > KVAL(AC_END)) index = fcitx_ucs4_to_utf8(value, buf);
             break;
 
         case KT_FN:
@@ -265,7 +234,7 @@ char *keysym_to_term_string(unsigned short keysym, char down)
 
         case KT_SHIFT:
             if (!down && npadch != -1) {
-                index = to_utf8(npadch, buf);
+                index = fcitx_ucs4_to_utf8(npadch, buf);
                 npadch = -1;
             }
             break;

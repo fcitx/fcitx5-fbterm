@@ -1,3 +1,10 @@
+/*
+* SPDX-FileCopyrightText: 2021 duzhaokun123 <duzhaokun2@outlook.com>
+*
+* SPDX-License-Identifier: GPL-3.0-or-later
+*
+*/
+
 #include "fcitx5-fbterm.h"
 #include "imapi.h"
 #include "keycode.h"
@@ -7,6 +14,7 @@
 #include <fcitx-gclient/fcitxgclient.h>
 #include <fcitx-utils/capabilityflags.h>
 #include <fcitx-utils/keysymgen.h>
+#include <fcitx-utils/fs.h>
 #include <gio/gio.h>
 #include <iconv.h>
 
@@ -34,7 +42,11 @@ ColorType fc = Black;
 ColorType bc = Gray;
 static const auto rect0 = Rectangle {0, 0, 0, 0};
 unsigned cursorx, cursory;
-Info fbtermInfo;
+uint fw;
+uint fh;
+uint hfh;
+uint sw;
+uint sh;
 
 struct interval {
     unsigned first;
@@ -221,7 +233,11 @@ static void cursor_pos_changed(unsigned x, unsigned y) {
 }
 
 static void update_fbterm_info(Info* info) {
-    fbtermInfo = *info;
+    fh = info->fontHeight;
+    fw = info->fontWidth;
+    sh = info->screenHeight;
+    sw = info->screenWidth;
+    hfh = (uint)(fh * 0.5);
 }
 
 static ImCallbacks cbs = {
@@ -273,18 +289,14 @@ void fcitx_fbterm_update_client_side_ui_cb(FcitxGClient*, GPtrArray* preedit, in
                                            GPtrArray* auxDown, GPtrArray* candidates, int highlight,
                                            int /* layoutHint */, gboolean hasPrev, gboolean hasNext,
                                            void*) {
-    auto p1 = preedit->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(preedit, 0))->string : "";
-    auto p2 = _cursorPos;
-    auto p3 = auxUp->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(auxUp, 0))->string : "";
-    auto p4 = auxDown->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(auxDown, 0))->string : "";
-    auto p5 = vector<FcitxGCandidateItem*>();
-    auto p6 = highlight;
-    auto p7 = hasPrev;
-    auto p8 = hasNext;
+    auto _preedit = preedit->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(preedit, 0))->string : "";
+    auto _auxUp = auxUp->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(auxUp, 0))->string : "";
+    auto _auxDown = auxDown->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(auxDown, 0))->string : "";
+    auto _candidates = vector<FcitxGCandidateItem*>();
     for (guint i = 0; i < candidates->len; i++) {
-        p5.push_back((FcitxGCandidateItem*)g_ptr_array_index(candidates, i));
+        _candidates.push_back((FcitxGCandidateItem*)g_ptr_array_index(candidates, i));
     }
-    fcitx_fbterm_update_client_side_ui_cb_parsed(p1, p2, p3, p4, p5, p6, p7, p8);
+    fcitx_fbterm_update_client_side_ui_cb_parsed(_preedit, _cursorPos, _auxUp, _auxDown, _candidates, highlight, hasPrev, hasNext);
 }
 
 static gboolean iochannel_fbterm_callback(GIOChannel*, GIOCondition, gpointer) {
@@ -315,7 +327,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     auto s = vector<string>();
-    split(getAppName(argv[0]), s, '-');
+    split(fcitx::fs::baseName(argv[0]), s, '-');
     if (s.size() != 2 && s.size() != 4) {
         eprintf("Warning: unknown name %s", getArg1(0));
         sleep(1);
