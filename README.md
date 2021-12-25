@@ -1,28 +1,28 @@
 # fcitx5-fbterm
-[fcitx-fbterm](https://github.com/fcitx/fcitx-fbterm) 对 [fcitx5](https://github.com/fcitx/fcitx5) 的重构
+[fcitx-fbterm](https://github.com/fcitx/fcitx-fbterm) refactor for [fcitx5](https://github.com/fcitx/fcitx5)
 
-## 安装
+## Install
 ### ArchLinux
 [fcitx5-fbterm-git(AUR)](https://aur.archlinux.org/packages/fcitx5-fbterm-git/)
-### 其他
-见[构建](#构建)
+### Other
+See [Build](#Build)
 
-## 构建
-### 依赖
+## Build
+### Depends
 - fcitx5
 - cmake
 - make
 
-### 编译
+### Comple
 ```shell
 git clone https://github.com/duzhaokun123/fcitx5-fbterm
 mkdir fcitx5-fbterm/build
 cd fcitx5-fbterm/build
 cmake ..
-make #输出在 fcitx5-fbterm
+make #output is fcitx5-fbterm
 ```
 
-## 用法
+## Usage
 ```
 fcitx5-fbterm --help
 Usage: fcitx5-fbterm [options]
@@ -38,5 +38,3 @@ Color:
   DarkGray, Red, Green, Yellow, Blue, Magenta, Cyan, White
 ```
 
-## 截图
-![tty.png](tty.png)
