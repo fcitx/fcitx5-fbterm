@@ -15,51 +15,48 @@
 #include <fcitx-utils/capabilityflags.h>
 #include <fcitx-utils/keysymgen.h>
 #include <fcitx-utils/fs.h>
+#include <fcitx-utils/stringutils.h>
+#include <fcitx-utils/log.h>
 #include <gio/gio.h>
 #include <iconv.h>
-
-#define eprintf(args...) fprintf(stderr, args)
-#define getArg1(i) getArg3(argc, argv, i)
-#define clearWin(id) set_im_window(id, rect0)
-#define BUF_SIZE 8192
-#define WINID_IM 0
-#define WINID_ERROR 1
+#include <getopt.h>
 
 using namespace std;
 
 static char raw_mode = 1;
-static FcitxGClient* client;
-static GMainLoop* main_loop;
+static FcitxGClient *client;
+static GMainLoop *main_loop;
 static bool active = false;
 static fcitx::KeyState state;
-static char textup[BUF_SIZE];
-static char textdown[BUF_SIZE];
-static char imname[BUF_SIZE];
+static string textup;
+static string textdown;
+static string imname;
 static iconv_t iconvW;
 static int cursorPos = -1;
-static uint auxUpWidth;
+static string auxUp;
 ColorType fc = Black;
 ColorType bc = Gray;
-static const auto rect0 = Rectangle {0, 0, 0, 0};
-unsigned cursorx, cursory;
-uint fw;
-uint fh;
-uint hfh;
-uint sw;
-uint sh;
+static const auto rect0 = Rectangle{0, 0, 0, 0};
+bool skipFbterm = false;
+GlobalValues globalValues;
+
+enum {
+    WINID_IM = 0,
+    WINID_ERROR = 1,
+};
+
+static struct option longOptions[] = {
+        {"skip-fbterm", no_argument, nullptr, 's'},
+        {"help",        no_argument, nullptr, 'h'}
+};
 
 struct interval {
     unsigned first;
     unsigned last;
 };
 
-char* getArg3(int argc, char* argv[], int i) {
-    if (i >= argc) return "";
-    return argv[i];
-}
-
-void* fcitx_utils_malloc0(size_t bytes) {
-    void* p = malloc(bytes);
+void *fcitx_utils_malloc0(size_t bytes) {
+    void *p = malloc(bytes);
     if (!p)
         return nullptr;
 
@@ -67,7 +64,11 @@ void* fcitx_utils_malloc0(size_t bytes) {
     return p;
 }
 
-static int bisearch(unsigned ucs, const struct interval* table, unsigned max) {
+void clearWin(int winid) {
+    set_im_window(winid, rect0);
+}
+
+static int bisearch(unsigned ucs, const struct interval *table, unsigned max) {
     unsigned min = 0;
     unsigned mid;
 
@@ -88,35 +89,35 @@ static int bisearch(unsigned ucs, const struct interval* table, unsigned max) {
 static int is_double_width(unsigned ucs) {
     ucs = be32toh(ucs);
     static const struct interval double_width[] = {
-            {0x1100, 0x115F},
-            {0x2329, 0x232A},
-            {0x2E80, 0x303E},
-            {0x3040, 0xA4CF},
-            {0xAC00, 0xD7A3},
-            {0xF900, 0xFAFF},
-            {0xFE10, 0xFE19},
-            {0xFE30, 0xFE6F},
-            {0xFF00, 0xFF60},
-            {0xFFE0, 0xFFE6},
+            {0x1100,  0x115F},
+            {0x2329,  0x232A},
+            {0x2E80,  0x303E},
+            {0x3040,  0xA4CF},
+            {0xAC00,  0xD7A3},
+            {0xF900,  0xFAFF},
+            {0xFE10,  0xFE19},
+            {0xFE30,  0xFE6F},
+            {0xFF00,  0xFF60},
+            {0xFFE0,  0xFFE6},
             {0x20000, 0x2FFFD},
             {0x30000, 0x3FFFD}};
     return bisearch(ucs, double_width, sizeof(double_width) / sizeof(struct interval) - 1);
 }
 
-static unsigned int text_width(char* str) {
+static unsigned int text_width(const char *str) {
     if (iconvW == nullptr)
         iconvW = iconv_open("ucs-4be", "utf-8");
-    if (iconvW == (iconv_t)-1) {
+    if (iconvW == (iconv_t) -1) {
         return g_utf8_strlen(str, INT_MAX);
     } else {
         size_t len = strlen(str);
         size_t charlen = g_utf8_strlen(str, INT_MAX);
-        unsigned* wmessage;
+        unsigned *wmessage;
         size_t wlen = (len + 1) * sizeof(unsigned);
-        wmessage = (unsigned*)fcitx_utils_malloc0((len + 1) * sizeof(unsigned));
+        wmessage = (unsigned *) fcitx_utils_malloc0((len + 1) * sizeof(unsigned));
 
-        char* inp = str;
-        char* outp = (char*)wmessage;
+        char *inp = (char *) str;
+        char *outp = (char *) wmessage;
 
         iconv(iconvW, &inp, &len, &outp, &wlen);
 
@@ -138,12 +139,12 @@ static unsigned int text_width(char* str) {
 static void show_cannot_connect_error() {
     auto msg = "ERROR: Can't connect to fcitx5! Is daemon running?";
     Rectangle rect;
-    rect.w = (text_width((char*)msg) + 2) * fw;
-    rect.h = fh * 2;
+    rect.w = (text_width((char *) msg) + 2) * globalValues.fontWidth;
+    rect.h = globalValues.fontHeight * 2;
     moveRectInScreen(rect);
     set_im_window(WINID_ERROR, rect);
     fill_rect(rect, Red);
-    draw_text(rect.x + fw, rect.y + hfh, White, Red, msg, strlen(msg));
+    draw_text(rect.x + globalValues.fontWidth, rect.y + globalValues.halfFontHeight, White, Red, msg, strlen(msg));
 }
 
 static void im_active() {
@@ -163,30 +164,33 @@ static void im_deactive() {
 
 static void im_show(unsigned) {
     clearWin(WINID_ERROR);
-    if (strlen(textup) == 0) {
+    if (textup.empty()) {
         clearWin(WINID_IM);
         return;
     }
 
-    auto width = (max(text_width(textup), text_width(textdown)) + 2) * fw;
-    auto height = fh * (strlen(textdown) != 0 ? 3 : 2);
+    auto width = (max(text_width(textup.c_str()), text_width(textdown.c_str())) + 2) * globalValues.fontWidth;
+    auto height = globalValues.fontHeight * (textdown.empty() ? 2 : 3);
     Rectangle rect;
     rect.w = width;
     rect.h = height;
     moveRectInScreen(rect);
     set_im_window(WINID_IM, rect);
     fill_rect(rect, bc);
-    draw_text(rect.x + fw, rect.y + hfh, fc, bc, textup, strlen(textup));
-    draw_text(rect.x + fw, rect.y + hfh * 3, fc, bc, textdown, strlen(textdown));
-    if (cursorPos != -1) {
-        draw_text(rect.x + fw * (1 + cursorPos + auxUpWidth), rect.y + hfh, fc, bc,
-                  textup[cursorPos + auxUpWidth] ? &textup[cursorPos + auxUpWidth] : " ", 1);
-    }
+    draw_text(rect.x + globalValues.fontWidth, rect.y + globalValues.halfFontHeight, fc, bc, textup.c_str(),
+              textup.length());
+    draw_text(rect.x + globalValues.fontWidth, rect.y + globalValues.halfFontHeight * 3, fc, bc, textdown.c_str(),
+              textdown.length());
+//    if (cursorPos != -1) {
+//        auto auxUpWidth = text_width(auxUp.c_str());
+//        draw_text(rect.x + globalValues.fontWidth * (1 + cursorPos + auxUpWidth), rect.y + globalValues.halfFontHeight,
+//                  bc, fc, cursorPos == textup.length() - auxUp.length() ? " " : &textup[cursorPos + auxUp.length()], 1);
+//    }
 }
 
 static void im_hide() {}
 
-static void process_raw_key(char* buf, unsigned int len) {
+static void process_raw_key(char *buf, unsigned int len) {
     auto notConnected = !fcitx_g_client_is_valid(client);
     if (notConnected) {
         show_cannot_connect_error();
@@ -217,7 +221,7 @@ static void process_raw_key(char* buf, unsigned int len) {
 
         if (keysym == FcitxKey_None || fcitx_g_client_process_key_sync(client, keysym, code,
                                                                        static_cast<guint32>(state), !down, 0) <= 0) {
-            char* str = keysym_to_term_string(linux_keysym, down);
+            char *str = keysym_to_term_string(linux_keysym, down);
             if (str)
                 put_im_text(str, strlen(str));
         }
@@ -227,17 +231,21 @@ static void process_raw_key(char* buf, unsigned int len) {
 }
 
 static void cursor_pos_changed(unsigned x, unsigned y) {
-    cursorx = x;
-    cursory = y;
+    globalValues.cursorx = x;
+    globalValues.cursory = y;
     im_show(-1);
 }
 
-static void update_fbterm_info(Info* info) {
-    fh = info->fontHeight;
-    fw = info->fontWidth;
-    sh = info->screenHeight;
-    sw = info->screenWidth;
-    hfh = (uint)(fh * 0.5);
+static void update_fbterm_info(Info *info) {
+    globalValues = GlobalValues();
+    globalValues = {
+            info->fontWidth,
+            info->fontHeight,
+            (uint) (info->fontHeight * 0.5),
+            info->screenHeight,
+            info->screenWidth,
+            0, 0
+    };
 }
 
 static ImCallbacks cbs = {
@@ -251,26 +259,26 @@ static ImCallbacks cbs = {
         update_term_mode   // .term_mode
 };
 
-void fcitx_fbterm_connect_cb(FcitxGClient*, void*) {
+void fcitx_fbterm_connect_cb(FcitxGClient *, void *) {
     g_assert(fcitx_g_client_is_valid(client));
     fcitx_g_client_set_capability(client, static_cast<guint64>(fcitx::CapabilityFlag::ClientSideInputPanel));
 }
 
-void fcitx_fbterm_commit_string_cb(FcitxGClient*, char* str, void*) {
+void fcitx_fbterm_commit_string_cb(FcitxGClient *, char *str, void *) {
     put_im_text(str, strlen(str));
 }
 
-void fcitx_fbterm_current_im_cb(FcitxGClient*, char* name, char* uniqe_name, char* lang_code, gint type, void*) {
+void fcitx_fbterm_current_im_cb(FcitxGClient *, char *name, char *uniqe_name, char *lang_code, gint type, void *) {
     state = fcitx::KeyState::NoState;
     //    snprintf(imname, BUF_SIZE, "%s", name);
     //    im_show(-1);
 }
 
-void fcitx_fbterm_update_client_side_ui_cb_parsed(const char* preedit, int _cursorPos, const char* auxUp,
-                                                  const char* auxDown, const vector<FcitxGCandidateItem*>& candidates,
+void fcitx_fbterm_update_client_side_ui_cb_parsed(const char *preedit, int _cursorPos, const char *_auxUp,
+                                                  const char *auxDown, const vector<FcitxGCandidateItem *> &candidates,
                                                   int highlight, bool hasPrev, bool hasNext) {
     cursorPos = _cursorPos;
-    snprintf(textup, BUF_SIZE, "%s%s", auxUp, preedit);
+    textup = string(auxUp) + preedit;
     auto down = string();
     down.append(auxDown);
     for (int i = 0; i < candidates.size(); i++) {
@@ -279,27 +287,27 @@ void fcitx_fbterm_update_client_side_ui_cb_parsed(const char* preedit, int _curs
         down.append(idx + ".");
         down.append(candidates[i]->candidate);
     }
-    snprintf(textdown, BUF_SIZE, "%s", down.c_str());
-    textup[BUF_SIZE - 1] = textdown[BUF_SIZE - 1] = '\0';
-    auxUpWidth = text_width((char*)auxUp);
+    textdown = down;
+    auxUp = string(_auxUp);
     im_show(-1);
 }
 
-void fcitx_fbterm_update_client_side_ui_cb(FcitxGClient*, GPtrArray* preedit, int _cursorPos, GPtrArray* auxUp,
-                                           GPtrArray* auxDown, GPtrArray* candidates, int highlight,
+void fcitx_fbterm_update_client_side_ui_cb(FcitxGClient *, GPtrArray *preedit, int _cursorPos, GPtrArray *auxUp,
+                                           GPtrArray *auxDown, GPtrArray *candidates, int highlight,
                                            int /* layoutHint */, gboolean hasPrev, gboolean hasNext,
-                                           void*) {
-    auto _preedit = preedit->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(preedit, 0))->string : "";
-    auto _auxUp = auxUp->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(auxUp, 0))->string : "";
-    auto _auxDown = auxDown->len > 0 ? ((FcitxGPreeditItem*)g_ptr_array_index(auxDown, 0))->string : "";
-    auto _candidates = vector<FcitxGCandidateItem*>();
+                                           void *) {
+    auto _preedit = preedit->len > 0 ? ((FcitxGPreeditItem *) g_ptr_array_index(preedit, 0))->string : "";
+    auto _auxUp = auxUp->len > 0 ? ((FcitxGPreeditItem *) g_ptr_array_index(auxUp, 0))->string : "";
+    auto _auxDown = auxDown->len > 0 ? ((FcitxGPreeditItem *) g_ptr_array_index(auxDown, 0))->string : "";
+    auto _candidates = vector<FcitxGCandidateItem *>();
     for (guint i = 0; i < candidates->len; i++) {
-        _candidates.push_back((FcitxGCandidateItem*)g_ptr_array_index(candidates, i));
+        _candidates.push_back((FcitxGCandidateItem *) g_ptr_array_index(candidates, i));
     }
-    fcitx_fbterm_update_client_side_ui_cb_parsed(_preedit, _cursorPos, _auxUp, _auxDown, _candidates, highlight, hasPrev, hasNext);
+    fcitx_fbterm_update_client_side_ui_cb_parsed(_preedit, _cursorPos, _auxUp, _auxDown, _candidates, highlight,
+                                                 hasPrev, hasNext);
 }
 
-static gboolean iochannel_fbterm_callback(GIOChannel*, GIOCondition, gpointer) {
+static gboolean iochannel_fbterm_callback(GIOChannel *, GIOCondition, gpointer) {
     if (!check_im_message()) {
         g_main_loop_quit(main_loop);
         return false;
@@ -307,29 +315,43 @@ static gboolean iochannel_fbterm_callback(GIOChannel*, GIOCondition, gpointer) {
     return true;
 }
 
-int main(int argc, char* argv[]) {
-    if (strcmp(getArg1(1), "--help") == 0) {
-        printf("Usage: %s [options]\n", getArg1(0));
-        printf("Options:\n"
-               "  --help        show this message\n"
-               "  --skip-fbterm skip fbterm connect check\n");
-        printf("You can create a link (not alias) to set theme:\n"
-               "  fcitx5-fbterm-<ForegroundColor>-<BackgroundColor>\n"
-               "  foreground color default: Black\n"
-               "  background color default: Gray\n");
-        printf("Color:\n"
-               "  Black, DarkRed, DarkGreen, DarkYellow, DarkBlue, DarkMagenta, DarkCyan, Gray,\n"
-               "  DarkGray, Red, Green, Yellow, Blue, Magenta, Cyan, White\n");
-        return 0;
+void printUsage(char *arg0) {
+    printf("Usage: %s [options]\n", arg0);
+    printf("Options:\n"
+           "  --help        show this message\n"
+           "  --skip-fbterm skip fbterm connect check\n");
+    printf("You can create a link (not alias) to set theme:\n"
+           "  fcitx5-fbterm-<ForegroundColor>-<BackgroundColor>\n"
+           "  foreground color default: Black\n"
+           "  background color default: Gray\n");
+    printf("Color:\n"
+           "  Black, DarkRed, DarkGreen, DarkYellow, DarkBlue, DarkMagenta, DarkCyan, Gray,\n"
+           "  DarkGray, Red, Green, Yellow, Blue, Magenta, Cyan, White\n");
+}
+
+int main(int argc, char *argv[]) {
+    int r;
+    while ((r = getopt_long_only(argc, argv, "", longOptions, nullptr)) != -1) {
+        switch (r) {
+            case 's':
+                skipFbterm = true;
+                break;
+            case 'h':
+            default:
+                printUsage(argv[0]);
+                return 0;
+        }
     }
-    if (get_im_socket() == -1 && strcmp(getArg1(1), "--skip-fbterm") != 0) {
-        eprintf("can't not connect to fbterm, make sure start using `fbterm -i %s` or in config file.\n", getArg1(0));
+
+    if (get_im_socket() == -1 && !skipFbterm) {
+        g_log(G_LOG_DOMAIN, G_LOG_LEVEL_ERROR,
+              "can't not connect to fbterm, make sure start using `fbterm -i %s` or in config file", argv[0]);
         return -1;
     }
-    auto s = vector<string>();
-    split(fcitx::fs::baseName(argv[0]), s, '-');
+    auto baseName = fcitx::fs::baseName(argv[0]);
+    auto s = fcitx::stringutils::split(baseName, "-");
     if (s.size() != 2 && s.size() != 4) {
-        eprintf("Warning: unknown name %s", getArg1(0));
+        g_log(G_LOG_DOMAIN, G_LOG_LEVEL_WARNING, "unknown name %s", baseName.c_str());
         sleep(1);
     }
     if (s.size() == 4) {
@@ -337,9 +359,9 @@ int main(int argc, char* argv[]) {
         bc = stringToColorType(s[3]);
     }
 
-    GIOChannel* iochannel_fbterm = g_io_channel_unix_new(get_im_socket());
-    g_io_add_watch(iochannel_fbterm, (GIOCondition)(G_IO_IN | G_IO_HUP | G_IO_ERR),
-                   (GIOFunc)iochannel_fbterm_callback,
+    GIOChannel *iochannel_fbterm = g_io_channel_unix_new(get_im_socket());
+    g_io_add_watch(iochannel_fbterm, (GIOCondition) (G_IO_IN | G_IO_HUP | G_IO_ERR),
+                   (GIOFunc) iochannel_fbterm_callback,
                    nullptr);
 
     client = fcitx_g_client_new();

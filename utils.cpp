@@ -7,18 +7,11 @@
 
 #include "utils.h"
 #include "fcitx5-fbterm.h"
-#include <sstream>
+#include <glib.h>
+#include <memory>
+#include <string>
 
-void split(const std::string& s, std::vector<std::string>& sv, char delim) {
-    sv.clear();
-    std::istringstream iss(s);
-    std::string temp;
-    while (std::getline(iss, temp, delim)) {
-        sv.push_back(std::move(temp));
-    }
-}
-
-ColorType stringToColorType(std::string& s) {
+ColorType stringToColorType(std::string &s) {
     if (s == "Black") return Black;
     if (s == "DarkRed") return DarkRed;
     if (s == "DarkGreen") return DarkGreen;
@@ -35,12 +28,17 @@ ColorType stringToColorType(std::string& s) {
     if (s == "Magenta") return Magenta;
     if (s == "Cyan") return Cyan;
     if (s == "White") return White;
-    throw std::runtime_error("unknown color: " + s);
+    g_log(G_LOG_DOMAIN, G_LOG_LEVEL_ERROR, "unknown color: %s\n", s.c_str());
+    exit(-1);
 }
 
-void moveRectInScreen(Rectangle& rect) {
+void moveRectInScreen(Rectangle &rect) {
     auto width = rect.w;
     auto height = rect.h;
-    rect.x = cursorx + fw + width > sw ? cursorx - width - fw : cursorx + fw;
-    rect.y = cursory + hfh + height > sh ? cursory - height - hfh * 3 : cursory + hfh;
+    rect.x = globalValues.cursorx + globalValues.fontWidth + width > globalValues.screenWidth ?
+             globalValues.cursorx - width - globalValues.fontWidth :
+             globalValues.cursorx + globalValues.fontWidth;
+    rect.y = globalValues.cursory + globalValues.halfFontHeight + height > globalValues.screenHeight ?
+             globalValues.cursory - height - globalValues.halfFontHeight * 3 :
+             globalValues.cursory + globalValues.halfFontHeight;
 }

@@ -12,8 +12,8 @@
 #include <iostream>
 #include <vector>
 
-void split(const std::string& s, std::vector<std::string>& sv, char delim);
-ColorType stringToColorType(std::string& s);
-void moveRectInScreen(Rectangle& rect);
+ColorType stringToColorType(std::string &s);
+
+void moveRectInScreen(Rectangle &rect);
 
 #endif//FCITX5_FBTERM_UTILS_H

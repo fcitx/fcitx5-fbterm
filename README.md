@@ -1,20 +1,28 @@
 # fcitx5-fbterm
+
 [fcitx-fbterm](https://github.com/fcitx/fcitx-fbterm) refactor for [fcitx5](https://github.com/fcitx/fcitx5)
 
 ## Install
+
 ### ArchLinux
+
 [fcitx5-fbterm-git(AUR)](https://aur.archlinux.org/packages/fcitx5-fbterm-git/)
+
 ### Other
+
 See [Build](#Build)
 
 ## Build
+
 ### Dependances
+
 - glib2
 - fcitx5
 - cmake
 - make
 
 ### Comple
+
 ```shell
 git clone https://github.com/duzhaokun123/fcitx5-fbterm
 mkdir fcitx5-fbterm/build
@@ -24,6 +32,7 @@ make #output is fcitx5-fbterm
 ```
 
 ## Usage
+
 ```
 fcitx5-fbterm --help
 Usage: fcitx5-fbterm [options]

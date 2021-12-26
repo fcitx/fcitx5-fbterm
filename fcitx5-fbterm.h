@@ -11,11 +11,16 @@
 #include "immessage.h"
 #include <istream>
 
-extern uint fw;
-extern uint fh;
-extern uint hfh;
-extern uint sw;
-extern uint sh;
-extern unsigned cursorx, cursory;
+class GlobalValues {
+public:
+    uint fontWidth;
+    uint fontHeight;
+    uint halfFontHeight;
+    uint screenWidth;
+    uint screenHeight;
+    unsigned cursorx, cursory;
+};
+
+extern GlobalValues globalValues;
 
 #endif//FCITX5_FBTERM_FCITX5_FBTERM_H
