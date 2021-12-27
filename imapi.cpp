@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <fcitx-utils/fs.h>
 #include "imapi.h"
 
 #define OFFSET(TYPE, MEMBER) ((size_t)(&(((TYPE *)0)->MEMBER)))
@@ -36,13 +37,11 @@ static int im_active = 0;
 
 static void wait_message(MessageType type);
 
-void register_im_callbacks(ImCallbacks callbacks)
-{
+void register_im_callbacks(ImCallbacks callbacks) {
     cbs = callbacks;
 }
 
-int get_im_socket()
-{
+int get_im_socket() {
     static char init = 0;
     if (!init) {
         init = 1;
@@ -58,8 +57,7 @@ int get_im_socket()
     return imfd;
 }
 
-void connect_fbterm(char raw)
-{
+void connect_fbterm(char raw) {
     get_im_socket();
     if (imfd == -1) return;
 
@@ -67,11 +65,10 @@ void connect_fbterm(char raw)
     msg.type = Connect;
     msg.len = sizeof(msg);
     msg.raw = (raw ? 1 : 0);
-    int ret = write(imfd, (char *)&msg, sizeof(msg));
+    int ret = fcitx::fs::safeWrite(imfd, (char *) &msg, sizeof(msg));
 }
 
-void put_im_text(const char *text, unsigned len)
-{
+void put_im_text(const char *text, unsigned len) {
     if (imfd == -1 || !im_active || !text || !len || (OFFSET(Message, texts) + len > UINT16_MAX)) return;
 
     char buf[OFFSET(Message, texts) + len];
@@ -80,11 +77,10 @@ void put_im_text(const char *text, unsigned len)
     MSG(buf)->len = sizeof(buf);
     memcpy(MSG(buf)->texts, text, len);
 
-    int ret = write(imfd, buf, MSG(buf)->len);
+    int ret = fcitx::fs::safeWrite(imfd, buf, MSG(buf)->len);
 }
 
-void set_im_window(unsigned id, Rectangle rect)
-{
+void set_im_window(unsigned id, Rectangle rect) {
     if (imfd == -1 || !im_active || id >= NR_IM_WINS) return;
 
     Message msg;
@@ -93,12 +89,11 @@ void set_im_window(unsigned id, Rectangle rect)
     msg.win.winid = id;
     msg.win.rect = rect;
 
-    int ret = write(imfd, (char *)&msg, sizeof(msg));
+    int ret = fcitx::fs::safeWrite(imfd, (char *) &msg, sizeof(msg));
     wait_message(AckWin);
 }
 
-void fill_rect(Rectangle rect, unsigned char color)
-{
+void fill_rect(Rectangle rect, unsigned char color) {
     Message msg;
     msg.type = FillRect;
     msg.len = sizeof(msg);
@@ -106,11 +101,10 @@ void fill_rect(Rectangle rect, unsigned char color)
     msg.fillRect.rect = rect;
     msg.fillRect.color = color;
 
-    int ret = write(imfd, (char *)&msg, sizeof(msg));
+    int ret = fcitx::fs::safeWrite(imfd, (char *) &msg, sizeof(msg));
 }
 
-void draw_text(unsigned x, unsigned y, unsigned char fc, unsigned char bc, const char *text, unsigned len)
-{
+void draw_text(unsigned x, unsigned y, unsigned char fc, unsigned char bc, const char *text, unsigned len) {
     if (!text || !len) return;
 
     char buf[OFFSET(Message, drawText.texts) + len];
@@ -124,11 +118,10 @@ void draw_text(unsigned x, unsigned y, unsigned char fc, unsigned char bc, const
     MSG(buf)->drawText.bc = bc;
     memcpy(MSG(buf)->drawText.texts, text, len);
 
-    int ret = write(imfd, buf, MSG(buf)->len);
+    int ret = fcitx::fs::safeWrite(imfd, buf, MSG(buf)->len);
 }
 
-static int process_message(Message *msg)
-{
+static int process_message(Message *msg) {
     int exit = 0;
 
     switch (msg->type) {
@@ -172,7 +165,7 @@ static int process_message(Message *msg)
             Message msg;
             msg.type = AckHideUI;
             msg.len = sizeof(msg);
-            int ret = write(imfd, (char *)&msg, sizeof(msg));
+            int ret = fcitx::fs::safeWrite(imfd, (char *) &msg, sizeof(msg));
             break;
         }
 
@@ -201,8 +194,7 @@ static int process_message(Message *msg)
     return exit;
 }
 
-static int process_messages(char *buf, int len)
-{
+static int process_messages(char *buf, int len) {
     char *cur = buf, *end = cur + len;
     int exit = 0;
 
@@ -213,12 +205,11 @@ static int process_messages(char *buf, int len)
     return exit;
 }
 
-static void wait_message(MessageType type)
-{
+static void wait_message(MessageType type) {
     int ack = 0;
     while (!ack) {
         char *cur = pending_msg_buf + pending_msg_buf_len;
-        int len = read(imfd, cur, sizeof(pending_msg_buf) - pending_msg_buf_len);
+        int len = fcitx::fs::safeRead(imfd, cur, sizeof(pending_msg_buf) - pending_msg_buf_len);
 
         if (len == -1 && (errno == EAGAIN || errno == EINTR)) continue;
         else if (len <= 0) {
@@ -245,12 +236,11 @@ static void wait_message(MessageType type)
         Message msg;
         msg.type = Ping;
         msg.len = sizeof(msg);
-        int ret = write(imfd, (char *)&msg, sizeof(msg));
+        int ret = fcitx::fs::safeWrite(imfd, (char *) &msg, sizeof(msg));
     }
 }
 
-int check_im_message()
-{
+int check_im_message() {
     if (imfd == -1) return 0;
 
     char buf[sizeof(pending_msg_buf)];
@@ -264,7 +254,7 @@ int check_im_message()
         exit |= process_messages(buf, len);
     }
 
-    len = read(imfd, buf, sizeof(buf));
+    len = fcitx::fs::safeRead(imfd, buf, sizeof(buf));
 
     if (len == -1 && (errno == EAGAIN || errno == EINTR)) return 1;
     else if (len <= 0) {
