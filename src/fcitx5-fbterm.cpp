@@ -30,7 +30,7 @@ std::string preeditItemsToString(const GPtrArray *preedit) {
     std::string preeditString;
     for (guint i = 0; i < preedit->len; i++) {
         preeditString +=
-            static_cast<FcitxGPreeditItem *>(g_ptr_array_index(preedit, 0))
+            static_cast<FcitxGPreeditItem *>(g_ptr_array_index(preedit, i))
                 ->string;
     }
     return preeditString;
