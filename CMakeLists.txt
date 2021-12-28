@@ -1,40 +1,13 @@
-cmake_minimum_required(VERSION 2.6)
-
-project(fcitx-fbterm)
+cmake_minimum_required(VERSION 3.3)
+project(fcitx5-fbterm)
 
 find_package(PkgConfig REQUIRED)
-find_package(Gettext REQUIRED)
-find_package(Fcitx 4.2.6 REQUIRED)
+find_package(Fcitx5Utils REQUIRED)
+find_package(Fcitx5GClient REQUIRED)
+include(GNUInstallDirs)
 
-pkg_check_modules(FCITX_GCLIENT "fcitx-gclient>=4.2.6" REQUIRED)
+pkg_check_modules(Gio2 REQUIRED IMPORTED_TARGET "gio-2.0")
 
-# uninstall target
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-    IMMEDIATE @ONLY)
-
-add_custom_target(uninstall
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
-
-if(NOT DEFINED LIB_INSTALL_DIR)
-    set(LIB_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/lib)
-endif()
-
-include(FindPkgConfig)
-
-set(prefix      ${CMAKE_INSTALL_PREFIX})
-set(exec_prefix ${CMAKE_INSTALL_PREFIX})
-set(bindir ${prefix}/bin)
-set(libdir ${LIB_INSTALL_DIR})
-set(localedir ${CMAKE_INSTALL_PREFIX}/share/locale)
-set(includedir  ${CMAKE_INSTALL_PREFIX}/include)
-set(CMAKE_C_FLAGS "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -fvisibility=hidden ${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -fvisibility=hidden ${CMAKE_CXX_FLAGS}")
-set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined,--as-needed ${CMAKE_SHARED_LINKER_FLAGS}")
-set(CMAKE_MODULE_LINKER_FLAGS "-Wl,--no-undefined,--as-needed ${CMAKE_MODULE_LINKER_FLAGS}")
-
-set(libdir ${LIB_INSTALL_DIR})
+include("${FCITX_INSTALL_CMAKECONFIG_DIR}/Fcitx5Utils/Fcitx5CompilerSettings.cmake")
 
 add_subdirectory(src)
-add_subdirectory(scripts)

@@ -1,25 +1,12 @@
 /*
- *   Copyright © 2008-2010 dragchan <zgchan317@gmail.com>
- *   This file is part of FbTerm.
+ * SPDX-FileCopyrightText: 2008~2010 dragchan <zgchan317@gmail.com>
+ * SPDX-FileCopyrightText: 2021~2021 CSSlayer <wengxt@gmail.com>
  *
- *   This program is free software; you can redistribute it and/or
- *   modify it under the terms of the GNU General Public License
- *   as published by the Free Software Foundation; either version 2
- *   of the License, or (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * SPDX-License-Identifier: GPL-3.0-or-later
  *
  */
-
-#ifndef INPUT_KEY_H
-#define INPUT_KEY_H
+#ifndef _FCITX5_FBTERM_INPUT_KEY_H_
+#define _FCITX5_FBTERM_INPUT_KEY_H_
 
 #include <linux/keyboard.h>
 
@@ -53,4 +40,4 @@ enum Keys {
     AC_END = CTRL_ALT_K
 };
 
-#endif
+#endif // _FCITX5_FBTERM_INPUT_KEY_H_
