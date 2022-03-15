@@ -12,7 +12,6 @@
 #include <fcitx-utils/fs.h>
 #include <fcitx-utils/keysymgen.h>
 #include <fcitx-utils/log.h>
-#include <fcitx-utils/stringutils.h>
 #include <fcitx-utils/utf8.h>
 #include <getopt.h>
 #include <gio/gio.h>
@@ -392,7 +391,7 @@ void FcitxFbterm::show_cannot_connect_error() {
     constexpr std::string_view msg =
         "ERROR: Can't connect to fcitx5! Is daemon running?";
     Rectangle rect = {0, 0, 0, 0};
-    rect.w = text_width(msg.data() + 2) * fontWidth_;
+    rect.w = (text_width(msg.data()) + 2) * fontWidth_;
     rect.h = fontHeight_ * 2;
     moveRectInScreen(rect);
     set_im_window(WINID_ERROR, rect);
